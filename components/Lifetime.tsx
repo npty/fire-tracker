@@ -78,8 +78,21 @@ export default function Lifetime({ state, currency, rate }: TabProps) {
       const y = padT + (H - padT - padB) * (1 - (d.endAED * rate) / maxV);
       return { x, y, d };
     });
-    return { W, H, padL, padB, padT, pts, maxV, firstAge: rows[0]?.age, lastAge: rows[rows.length - 1]?.age };
+    return { W, H, padL, padB, padT, stepX, pts, maxV, firstAge: rows[0]?.age, lastAge: rows[rows.length - 1]?.age };
   }, [rows, rate]);
+
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  const onChartMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * chart.W;
+    const idx = Math.round((x - chart.padL) / chart.stepX);
+    setHoverIdx(Math.max(0, Math.min(chart.pts.length - 1, idx)));
+  };
+
+  const hoverPt = hoverIdx !== null ? chart.pts[hoverIdx] : null;
+  const hoverNearRight = hoverPt !== null && hoverPt.x / chart.W > 0.7;
+  const hoverNearTop = hoverPt !== null && hoverPt.y / chart.H < 0.35;
 
   const spendDisplay = (spendAED * rate).toFixed(0);
   const endTargetDisplay = endTargetAED === 0 ? "" : (endTargetAED * rate).toFixed(0);
@@ -240,45 +253,64 @@ export default function Lifetime({ state, currency, rate }: TabProps) {
         {rows.length === 0 ? (
           <p className="text-sm text-slate-500">Nothing to project.</p>
         ) : (
-          <svg viewBox={`0 0 ${chart.W} ${chart.H}`} className="w-full" role="img" aria-label="Projected balance over time">
-            <defs>
-              <linearGradient id="balfill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <polygon
-              points={`${chart.padL},${chart.H - chart.padB} ${chart.pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")} ${chart.W - chart.padL},${chart.H - chart.padB}`}
-              fill="url(#balfill)"
-            />
-            <polyline
-              points={chart.pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}
-              fill="none"
-              stroke="#38bdf8"
-              strokeWidth="2.5"
-              strokeLinejoin="round"
-            />
-            {chart.pts.map((p, i) => {
-              const showLabel = i === 0 || i === chart.pts.length - 1 || (i + 1) % 5 === 0;
-              return (
-                <g key={p.d.year}>
-                  <circle cx={p.x} cy={p.y} r="3" fill="#38bdf8">
-                    <title>
-                      Age {p.d.age}: {fmtMoney(p.d.endAED, currency, rate)}
-                    </title>
-                  </circle>
-                  {showLabel && (
-                    <text x={p.x} y={p.y - 8} fill="#94a3b8" fontSize="9" textAnchor="middle">
-                      {fmtCompact(p.d.endAED, currency, rate)}
-                    </text>
-                  )}
+          <div className="relative">
+            <svg
+              viewBox={`0 0 ${chart.W} ${chart.H}`}
+              className="w-full cursor-crosshair"
+              role="img"
+              aria-label="Projected balance over time"
+              onMouseMove={onChartMove}
+              onMouseLeave={() => setHoverIdx(null)}
+            >
+              <defs>
+                <linearGradient id="balfill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <polygon
+                points={`${chart.padL},${chart.H - chart.padB} ${chart.pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")} ${chart.W - chart.padL},${chart.H - chart.padB}`}
+                fill="url(#balfill)"
+              />
+              <polyline
+                points={chart.pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}
+                fill="none"
+                stroke="#38bdf8"
+                strokeWidth="2.5"
+                strokeLinejoin="round"
+              />
+              {hoverPt && (
+                <g>
+                  <line
+                    x1={hoverPt.x}
+                    y1={chart.padT}
+                    x2={hoverPt.x}
+                    y2={chart.H - chart.padB}
+                    stroke="#475569"
+                    strokeWidth="1"
+                    strokeDasharray="3 3"
+                  />
+                  <circle cx={hoverPt.x} cy={hoverPt.y} r="4.5" fill="#38bdf8" stroke="#0f172a" strokeWidth="2" />
                 </g>
-              );
-            })}
-            <text x={chart.padL} y={chart.H - 8} fill="#64748b" fontSize="11">Age {chart.firstAge}</text>
-            <text x={chart.W - chart.padL} y={chart.H - 8} fill="#64748b" fontSize="11" textAnchor="end">Age {chart.lastAge}</text>
-            <text x={chart.padL} y={16} fill="#64748b" fontSize="11">{fmtCompact(chart.maxV / rate, currency, rate)}</text>
-          </svg>
+              )}
+              <text x={chart.padL} y={chart.H - 8} fill="#64748b" fontSize="11">Age {chart.firstAge}</text>
+              <text x={chart.W - chart.padL} y={chart.H - 8} fill="#64748b" fontSize="11" textAnchor="end">Age {chart.lastAge}</text>
+              <text x={chart.padL} y={16} fill="#64748b" fontSize="11">{fmtCompact(chart.maxV / rate, currency, rate)}</text>
+            </svg>
+            {hoverPt && (
+              <div
+                className="pointer-events-none absolute z-10 whitespace-nowrap rounded-lg border border-edge bg-ink px-3 py-2 text-xs shadow-xl"
+                style={{
+                  left: `${(hoverPt.x / chart.W) * 100}%`,
+                  top: `${(hoverPt.y / chart.H) * 100}%`,
+                  transform: `translate(${hoverNearRight ? "calc(-100% - 14px)" : "14px"}, ${hoverNearTop ? "14px" : "calc(-100% - 14px)"})`,
+                }}
+              >
+                <div className="text-slate-400">Age {hoverPt.d.age}</div>
+                <div className="font-semibold text-slate-100">{fmtMoney(hoverPt.d.endAED, currency, rate)}</div>
+              </div>
+            )}
+          </div>
         )}
       </section>
 
@@ -290,8 +322,14 @@ export default function Lifetime({ state, currency, rate }: TabProps) {
               <tr>
                 <th className="px-3 py-2 text-left">Age</th>
                 <th className="px-3 py-2 text-right">Start</th>
-                <th className="cursor-help px-3 py-2 text-right" title="Taken out to spend. Rises with inflation each year.">Withdrawn</th>
-                <th className="cursor-help px-3 py-2 text-right" title="Portfolio growth at the assumed annual return.">Gains</th>
+                <th className="px-3 py-2 text-right">
+                  Withdrawn
+                  <Info text="Taken out to spend that year. Rises with inflation each year." />
+                </th>
+                <th className="px-3 py-2 text-right">
+                  Gains
+                  <Info text="Portfolio growth that year at the assumed annual return." />
+                </th>
                 <th className="px-3 py-2 text-right">End</th>
               </tr>
             </thead>
