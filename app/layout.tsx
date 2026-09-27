@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Fire-tracker — FIRE wealth tracker",
-  description:
-    "Track net worth, target allocation, and lifetime withdrawal planning. All data stays in your browser.",
+  title: "FIRE Wealth Tracker",
+  description: "Personal Networth, allocation & lifetime withdrawal planning.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -47,7 +47,7 @@ const FALLBACK_RATES: Record<Currency, number> = { AED: 1, THB: 8.99, USD: 0.272
 
 /**
  * Live FX rates (per AED) from open.er-api.com, cached in localStorage.
- * Falls back to the last cached rates — or static fallback rates — when offline.
+ * Falls back to the last cached rates (or static fallback rates) when offline.
  */
 export function useFx(): FxState {
   const [rates, setRates] = useState<Record<Currency, number>>(FALLBACK_RATES);

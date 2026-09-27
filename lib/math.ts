@@ -24,16 +24,27 @@ function qOf(r: number, g: number): number {
 }
 
 /**
- * Maximum first-year withdrawal W such that the portfolio lasts exactly n years.
+ * Maximum first-year withdrawal W such that the balance at year n equals
+ * endTarget. Set endTarget to 0 to spend the portfolio down fully.
  * Returns the ANNUAL amount; divide by 12 for monthly.
+ *
+ * From B_n = PV*(1+r)^n - W*S = E:  W = (PV*(1+r)^n - E) / S.
  */
-export function maxAnnualWithdrawal(pv: number, r: number, g: number, n: number): number {
+export function maxAnnualWithdrawal(
+  pv: number,
+  r: number,
+  g: number,
+  n: number,
+  endTarget = 0
+): number {
   if (pv <= 0 || n <= 0) return 0;
+  const terminal = pv * Math.pow(1 + r, n) - Math.max(0, endTarget);
+  if (terminal <= 0) return 0;
   if (Math.abs(r - g) < 1e-9) {
-    return (pv * (1 + r)) / n;
+    return terminal / (n * Math.pow(1 + r, n - 1));
   }
   const q = qOf(r, g);
-  return (pv * (r - g)) / (1 - Math.pow(q, n));
+  return (terminal * (r - g)) / (Math.pow(1 + r, n) * (1 - Math.pow(q, n)));
 }
 
 /**

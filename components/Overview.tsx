@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { BUCKETS, BUCKET_COLORS, Bucket } from "../lib/types";
 import { fmtMoney, fmtPct } from "../lib/format";
 import type { TabProps } from "../lib/tabs";
+import Info from "./Info";
 
 function bucketTotals(state: TabProps["state"]): Record<Bucket, number> {
   const totals = {} as Record<Bucket, number>;
@@ -31,7 +32,10 @@ export default function Overview({ state, currency, rate }: TabProps) {
       </section>
 
       <section className="rounded-2xl border border-edge bg-panel p-6">
-        <h2 className="mb-4 text-lg font-semibold">Allocation vs target</h2>
+        <h2 className="mb-4 text-lg font-semibold">
+          Allocation vs target
+          <Info text="The white tick marks your target. The colored bar shows your actual allocation." />
+        </h2>
         <div className="space-y-5">
           {BUCKETS.map((bucket) => {
             const value = totals[bucket];
@@ -80,9 +84,6 @@ export default function Overview({ state, currency, rate }: TabProps) {
             );
           })}
         </div>
-        <p className="mt-4 text-xs text-slate-500">
-          White tick = target allocation. Colored bar = actual.
-        </p>
       </section>
     </div>
   );

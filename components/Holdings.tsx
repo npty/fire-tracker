@@ -5,6 +5,7 @@ import { BUCKETS, Bucket, Holding } from "../lib/types";
 import { uid } from "../lib/store";
 import { fmtMoney } from "../lib/format";
 import type { TabProps } from "../lib/tabs";
+import Info from "./Info";
 
 const inputCls =
   "w-full rounded-lg border border-edge bg-ink px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-sky-500 focus:outline-none";
@@ -69,7 +70,10 @@ export default function Holdings({ state, update, currency, rate }: TabProps) {
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-edge bg-panel p-6">
-        <h2 className="mb-4 text-lg font-semibold">Add holding</h2>
+        <h2 className="mb-4 text-lg font-semibold">
+          Add holding
+          <Info text="Values are stored in AED. The currency switcher converts them for display." />
+        </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <input className={inputCls} placeholder="Name (e.g. IBKR brokerage)" value={name} onChange={(e) => setName(e.target.value)} />
           <select className={inputCls} value={bucket} onChange={(e) => setBucket(e.target.value as Bucket)}>
@@ -92,12 +96,11 @@ export default function Holdings({ state, update, currency, rate }: TabProps) {
         <button onClick={addHolding} disabled={!name.trim() || Number.isNaN(parseNum(value))} className={`${btnPrimary} mt-4`}>
           Add holding
         </button>
-        <p className="mt-2 text-xs text-slate-500">Values are stored in AED; the currency switcher converts for display.</p>
       </section>
 
       <section className="rounded-2xl border border-edge bg-panel p-6">
         <h2 className="mb-4 text-lg font-semibold">Holdings ({state.holdings.length})</h2>
-        {state.holdings.length === 0 && <p className="text-sm text-slate-500">No holdings yet — add one above.</p>}
+        {state.holdings.length === 0 && <p className="text-sm text-slate-500">No holdings yet. Add one above.</p>}
         <ul className="space-y-3">
           {state.holdings.map((h) => (
             <li key={h.id} className="rounded-xl border border-edge bg-ink p-4">

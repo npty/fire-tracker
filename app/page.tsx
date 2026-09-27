@@ -61,49 +61,25 @@ export default function Home() {
     <div className="mx-auto max-w-5xl px-4 pb-16 pt-6 sm:px-6">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            🔥 Fire-tracker
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight">FIRE Wealth Tracker</h1>
           <p className="text-sm text-slate-400">
-            Net worth, allocation & lifetime withdrawal planning — data never leaves your browser.
+            Personal Networth, allocation & lifetime withdrawal planning.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex rounded-lg border border-edge bg-panel p-1" role="group" aria-label="Display currency">
-            {CURRENCIES.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCurrency(c)}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  currency === c ? "bg-sky-600 text-white" : "text-slate-300 hover:bg-edge"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => fx.refresh()}
-            disabled={fx.loading}
-            title="Refresh exchange rates"
-            className="rounded-lg border border-edge bg-panel px-3 py-1.5 text-sm text-slate-300 hover:bg-edge disabled:opacity-50"
-          >
-            {fx.loading ? "…" : "⟳ Rates"}
-          </button>
+        <div className="flex rounded-lg border border-edge bg-panel p-1" role="group" aria-label="Display currency">
+          {CURRENCIES.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCurrency(c)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                currency === c ? "bg-sky-600 text-white" : "text-slate-300 hover:bg-edge"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
         </div>
       </header>
-
-      <div className="mb-2 text-xs text-slate-500">
-        {fx.fetchedAt ? (
-          <>
-            Rates {fx.stale ? "(stale/offline) " : ""}updated{" "}
-            {new Date(fx.fetchedAt).toLocaleString()} · {fx.attribution}
-          </>
-        ) : (
-          <>Using fallback rates · {fx.attribution}</>
-        )}
-        {fx.error && <span className="text-amber-400"> — {fx.error}</span>}
-      </div>
 
       <nav className="mb-6 flex gap-1 overflow-x-auto rounded-xl border border-edge bg-panel p-1" role="tablist">
         {TABS.map((name, i) => (
@@ -131,12 +107,6 @@ export default function Home() {
         {tab === "Lifetime" && <Lifetime {...tabProps} />}
         {tab === "History" && <History {...tabProps} />}
       </main>
-
-      <footer className="mt-10 border-t border-edge pt-4 text-xs text-slate-500">
-        Press <kbd className="rounded border border-edge px-1 font-mono">1</kbd>–
-        <kbd className="rounded border border-edge px-1 font-mono">5</kbd> to switch tabs.
-        Educational projections only — not financial advice.
-      </footer>
     </div>
   );
 }

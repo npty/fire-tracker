@@ -15,7 +15,7 @@ export interface Holding {
   bucket: Bucket;
   /** Value stored in AED (the base currency). */
   valueAED: number;
-  /** e.g. unvested employer stock — excluded from conservative scenarios. */
+  /** e.g. unvested employer stock, excluded from conservative scenarios. */
   restricted?: boolean;
 }
 

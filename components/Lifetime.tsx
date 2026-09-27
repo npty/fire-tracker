@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { fmtCompact, fmtMoney } from "../lib/format";
 import { clamp, maxAnnualWithdrawal, projection, yearsLasting } from "../lib/math";
 import type { TabProps } from "../lib/tabs";
+import Info from "./Info";
 
 const inputCls =
   "w-full rounded-lg border border-edge bg-ink px-3 py-2 text-sm text-slate-100 focus:border-sky-500 focus:outline-none";
@@ -17,7 +18,7 @@ function num(v: string, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-export default function Lifetime({ state, currency, rate, fx }: TabProps) {
+export default function Lifetime({ state, currency, rate }: TabProps) {
   const [mode, setMode] = useState<Mode>("max");
   const [age, setAge] = useState("34");
   const [horizon, setHorizon] = useState("90");
@@ -26,6 +27,10 @@ export default function Lifetime({ state, currency, rate, fx }: TabProps) {
   const [includeRestricted, setIncludeRestricted] = useState(false);
   // Monthly spending stored in AED; default ≈ 70,000 THB.
   const [spendAED, setSpendAED] = useState<number>(70000 / 8.99);
+  // Target balance left at the horizon age, stored in AED. 0 = spend it all.
+  const [endTargetAED, setEndTargetAED] = useState(0);
+  // Optional ceiling on monthly withdrawals, stored in AED. 0 = no cap.
+  const [capAED, setCapAED] = useState(0);
 
   const portfolioAED = useMemo(
     () =>
@@ -43,8 +48,8 @@ export default function Lifetime({ state, currency, rate, fx }: TabProps) {
   const nYears = Math.round(horizonAge - currentAge);
 
   const maxAnnual = useMemo(
-    () => maxAnnualWithdrawal(portfolioAED, r, g, nYears),
-    [portfolioAED, r, g, nYears]
+    () => maxAnnualWithdrawal(portfolioAED, r, g, nYears, endTargetAED),
+    [portfolioAED, r, g, nYears, endTargetAED]
   );
 
   const annualSpend = spendAED * 12;
@@ -53,29 +58,32 @@ export default function Lifetime({ state, currency, rate, fx }: TabProps) {
     [portfolioAED, r, g, annualSpend]
   );
 
-  // Projection uses mode A's max withdrawal or mode B's spending, capped at the horizon.
-  const projAnnual = mode === "max" ? maxAnnual : annualSpend;
+  // Max mode: cap the withdrawal; anything unwithdrawn stays invested.
+  const capAnnual = capAED * 12;
+  const capped = mode === "max" && capAnnual > 0 && maxAnnual > capAnnual;
+  const projAnnual = mode === "max" ? (capped ? capAnnual : maxAnnual) : annualSpend;
   const rows = useMemo(
     () => projection(portfolioAED, r, g, projAnnual, nYears, Math.round(currentAge)),
     [portfolioAED, r, g, projAnnual, nYears, currentAge]
   );
+  const endBalanceAED = rows.length > 0 ? rows[rows.length - 1].endAED : portfolioAED;
 
   const chart = useMemo(() => {
-    const W = 620, H = 230, padL = 8, padB = 26, padT = 10;
+    const W = 620, H = 250, padL = 8, padB = 26, padT = 30;
     const vals = rows.map((d) => d.endAED * rate);
     const maxV = Math.max(...vals, 1);
     const stepX = rows.length > 1 ? (W - padL * 2) / (rows.length - 1) : 0;
-    const pts = rows
-      .map((d, i) => {
-        const x = padL + i * stepX;
-        const y = padT + (H - padT - padB) * (1 - (d.endAED * rate) / maxV);
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      })
-      .join(" ");
-    return { W, H, padL, padB, pts, maxV, firstAge: rows[0]?.age, lastAge: rows[rows.length - 1]?.age };
+    const pts = rows.map((d, i) => {
+      const x = padL + i * stepX;
+      const y = padT + (H - padT - padB) * (1 - (d.endAED * rate) / maxV);
+      return { x, y, d };
+    });
+    return { W, H, padL, padB, padT, pts, maxV, firstAge: rows[0]?.age, lastAge: rows[rows.length - 1]?.age };
   }, [rows, rate]);
 
   const spendDisplay = (spendAED * rate).toFixed(0);
+  const endTargetDisplay = endTargetAED === 0 ? "" : (endTargetAED * rate).toFixed(0);
+  const capDisplay = capAED === 0 ? "" : (capAED * rate).toFixed(0);
 
   return (
     <div className="space-y-6">
@@ -116,6 +124,43 @@ export default function Lifetime({ state, currency, rate, fx }: TabProps) {
           </div>
         </div>
 
+        {mode === "max" && (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>
+                Leave at age {Math.round(horizonAge)} ({currency})
+                <Info text="Balance you want left when the plan ends. Set to 0 to spend it all." />
+              </label>
+              <input
+                className={inputCls}
+                inputMode="decimal"
+                placeholder="0"
+                value={endTargetDisplay}
+                onChange={(e) => {
+                  const n = num(e.target.value, NaN);
+                  setEndTargetAED(!Number.isNaN(n) && n >= 0 ? n / rate : 0);
+                }}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>
+                Monthly cap ({currency})
+                <Info text="Optional ceiling on monthly withdrawals. Anything above the cap stays invested and keeps growing." />
+              </label>
+              <input
+                className={inputCls}
+                inputMode="decimal"
+                placeholder="No cap"
+                value={capDisplay}
+                onChange={(e) => {
+                  const n = num(e.target.value, NaN);
+                  setCapAED(!Number.isNaN(n) && n >= 0 ? n / rate : 0);
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {mode === "runway" && (
           <div className="mt-3 max-w-xs">
             <label className={labelCls}>Monthly spending ({currency})</label>
@@ -153,14 +198,18 @@ export default function Lifetime({ state, currency, rate, fx }: TabProps) {
           {mode === "max" ? (
             <div className="rounded-xl bg-ink p-4 sm:col-span-2">
               <div className="text-xs text-slate-500">
-                Max sustainable monthly withdrawal to age {Math.round(horizonAge)} (grows with inflation)
+                {capped ? "Monthly withdrawal (capped)" : `Max monthly withdrawal to age ${Math.round(horizonAge)}`}
               </div>
               <div className="text-3xl font-bold text-emerald-400">
-                {fmtMoney(maxAnnual / 12, currency, rate)}
+                {fmtMoney(projAnnual / 12, currency, rate)}
                 <span className="text-base font-normal text-slate-500"> /mo</span>
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                ≈ {fmtMoney(maxAnnual, currency, rate)} in the first year
+                {capped
+                  ? `Capped. Projected balance at age ${Math.round(horizonAge)}: ${fmtMoney(endBalanceAED, currency, rate)}`
+                  : endTargetAED > 0
+                    ? `Leaves ${fmtMoney(endTargetAED, currency, rate)} at age ${Math.round(horizonAge)}`
+                    : `About ${fmtMoney(projAnnual, currency, rate)} in the first year`}
               </div>
             </div>
           ) : (
@@ -170,7 +219,7 @@ export default function Lifetime({ state, currency, rate, fx }: TabProps) {
               </div>
               <div className="text-3xl font-bold text-emerald-400">
                 {runwayYears === Infinity ? (
-                  <>Indefinite ∞</>
+                  <>Indefinite</>
                 ) : (
                   <>
                     {runwayYears.toFixed(1)}
@@ -178,11 +227,9 @@ export default function Lifetime({ state, currency, rate, fx }: TabProps) {
                   </>
                 )}
               </div>
-              <div className="mt-1 text-xs text-slate-500">
-                {runwayYears === Infinity
-                  ? "Growth outpaces withdrawals forever under these assumptions."
-                  : "Assumes withdrawals grow with inflation each year."}
-              </div>
+              {runwayYears === Infinity && (
+                <div className="mt-1 text-xs text-slate-500">Growth outpaces withdrawals at this spending level.</div>
+              )}
             </div>
           )}
         </div>
@@ -200,8 +247,34 @@ export default function Lifetime({ state, currency, rate, fx }: TabProps) {
                 <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
               </linearGradient>
             </defs>
-            <polygon points={`${chart.padL},${chart.H - chart.padB} ${chart.pts} ${chart.W - chart.padL},${chart.H - chart.padB}`} fill="url(#balfill)" />
-            <polyline points={chart.pts} fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinejoin="round" />
+            <polygon
+              points={`${chart.padL},${chart.H - chart.padB} ${chart.pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")} ${chart.W - chart.padL},${chart.H - chart.padB}`}
+              fill="url(#balfill)"
+            />
+            <polyline
+              points={chart.pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}
+              fill="none"
+              stroke="#38bdf8"
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+            />
+            {chart.pts.map((p, i) => {
+              const showLabel = i === 0 || i === chart.pts.length - 1 || (i + 1) % 5 === 0;
+              return (
+                <g key={p.d.year}>
+                  <circle cx={p.x} cy={p.y} r="3" fill="#38bdf8">
+                    <title>
+                      Age {p.d.age}: {fmtMoney(p.d.endAED, currency, rate)}
+                    </title>
+                  </circle>
+                  {showLabel && (
+                    <text x={p.x} y={p.y - 8} fill="#94a3b8" fontSize="9" textAnchor="middle">
+                      {fmtCompact(p.d.endAED, currency, rate)}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
             <text x={chart.padL} y={chart.H - 8} fill="#64748b" fontSize="11">Age {chart.firstAge}</text>
             <text x={chart.W - chart.padL} y={chart.H - 8} fill="#64748b" fontSize="11" textAnchor="end">Age {chart.lastAge}</text>
             <text x={chart.padL} y={16} fill="#64748b" fontSize="11">{fmtCompact(chart.maxV / rate, currency, rate)}</text>
@@ -217,8 +290,8 @@ export default function Lifetime({ state, currency, rate, fx }: TabProps) {
               <tr>
                 <th className="px-3 py-2 text-left">Age</th>
                 <th className="px-3 py-2 text-right">Start</th>
-                <th className="px-3 py-2 text-right">Withdrawal</th>
-                <th className="px-3 py-2 text-right">Growth</th>
+                <th className="cursor-help px-3 py-2 text-right" title="Taken out to spend. Rises with inflation each year.">Withdrawn</th>
+                <th className="cursor-help px-3 py-2 text-right" title="Portfolio growth at the assumed annual return.">Gains</th>
                 <th className="px-3 py-2 text-right">End</th>
               </tr>
             </thead>
@@ -227,7 +300,7 @@ export default function Lifetime({ state, currency, rate, fx }: TabProps) {
                 <tr key={d.year} className="border-t border-edge/60 odd:bg-ink/40">
                   <td className="px-3 py-1.5">{d.age}</td>
                   <td className="px-3 py-1.5 text-right">{fmtMoney(d.startAED, currency, rate)}</td>
-                  <td className="px-3 py-1.5 text-right text-amber-400">−{fmtMoney(d.withdrawalAED, currency, rate)}</td>
+                  <td className="px-3 py-1.5 text-right text-amber-400">-{fmtMoney(d.withdrawalAED, currency, rate)}</td>
                   <td className="px-3 py-1.5 text-right text-emerald-400">+{fmtMoney(d.growthAED, currency, rate)}</td>
                   <td className="px-3 py-1.5 text-right font-medium">{fmtMoney(d.endAED, currency, rate)}</td>
                 </tr>
@@ -235,10 +308,6 @@ export default function Lifetime({ state, currency, rate, fx }: TabProps) {
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-xs text-slate-500">
-          Withdrawals are taken at each year-end and grow with inflation. Simplified annual model for
-          illustration — not financial advice. FX: {fx.attribution}.
-        </p>
       </section>
     </div>
   );

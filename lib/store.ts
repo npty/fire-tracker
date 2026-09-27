@@ -34,7 +34,7 @@ export function useAppState() {
     try {
       window.localStorage.setItem(STATE_KEY, JSON.stringify(state));
     } catch {
-      /* storage full / unavailable — app keeps working in memory */
+      /* storage full or unavailable: app keeps working in memory */
     }
   }, [state, ready]);
 

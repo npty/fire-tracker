@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { uid } from "../lib/store";
 import { fmtCompact, fmtMoney } from "../lib/format";
 import type { TabProps } from "../lib/tabs";
+import Info from "./Info";
 
 export default function History({ state, update, currency, rate }: TabProps) {
   const snapshots = useMemo(
@@ -52,10 +53,10 @@ export default function History({ state, update, currency, rate }: TabProps) {
       <section className="rounded-2xl border border-edge bg-panel p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Net worth history</h2>
-            <p className="text-xs text-slate-500">
-              Auto-snapshot on your first visit each month, plus manual snapshots anytime.
-            </p>
+            <h2 className="text-lg font-semibold">
+              Net worth history
+              <Info text="Snapshots automatically on your first visit each month. You can also snapshot manually anytime." />
+            </h2>
           </div>
           <button
             onClick={snapshotNow}
@@ -143,7 +144,7 @@ export default function History({ state, update, currency, rate }: TabProps) {
                       </td>
                       <td className="px-3 py-1.5 text-right font-medium">{fmtMoney(s.netWorthAED, currency, rate)}</td>
                       <td className={`px-3 py-1.5 text-right ${delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                        {prev ? `${delta >= 0 ? "+" : ""}${fmtMoney(delta, currency, rate)}` : "—"}
+                        {prev ? `${delta >= 0 ? "+" : ""}${fmtMoney(delta, currency, rate)}` : "-"}
                       </td>
                       <td className="px-3 py-1.5 text-right">
                         <button
